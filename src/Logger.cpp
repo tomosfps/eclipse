@@ -207,10 +207,10 @@ void Logger::logInternal(LogLevel level, const std::string& tag, const std::stri
         std::string cleanTrace = extractFilename(trace);
         size_t atPos = cleanTrace.find("at ");
         if (atPos != std::string::npos) {
-            out << white << padding << " ┗ at " << dim 
+            out << white << padding << "┗ at " << dim 
                 << cleanTrace.substr(atPos + 3) << reset << "\n";
         } else {
-            out << white << padding << " ┗ " << dim << cleanTrace << reset << "\n";
+            out << white << padding << "┗ " << dim << cleanTrace << reset << "\n";
         }
     } else {
         if (!trace.empty()) {
