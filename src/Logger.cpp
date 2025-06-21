@@ -192,7 +192,7 @@ void Logger::logInternal(LogLevel level, const std::string& tag, const std::stri
     std::string levelName = getLevelName(level);
     
     // Calculate padding for alignment - match the exact format of the main line
-    std::string plainPrefix = "[" + timestamp + "] " + std::string(5, ' ') + ": ┏ ";
+    std::string plainPrefix = "[" + timestamp + "] " + std::string(5, ' ') + ": ";
     std::string padding(plainPrefix.length(), ' ');
 
     // Main log line: [timestamp] level: ┏ [tag] message
@@ -207,10 +207,10 @@ void Logger::logInternal(LogLevel level, const std::string& tag, const std::stri
         std::string cleanTrace = extractFilename(trace);
         size_t atPos = cleanTrace.find("at ");
         if (atPos != std::string::npos) {
-            out << white << padding << "┗ at " << dim 
+            out << white << padding << " ┗ at " << dim 
                 << cleanTrace.substr(atPos + 3) << reset << "\n";
         } else {
-            out << white << padding << "┗ " << dim << cleanTrace << reset << "\n";
+            out << white << padding << " ┗ " << dim << cleanTrace << reset << "\n";
         }
     } else {
         if (!trace.empty()) {
