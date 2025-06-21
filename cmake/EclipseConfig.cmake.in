@@ -1,0 +1,25 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies
+find_dependency(Threads REQUIRED)
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/EclipseTargets.cmake")
+
+# Check that all required components are available
+check_required_components(Eclipse)
+
+# Provide legacy variables for backward compatibility
+set(Eclipse_FOUND TRUE)
+set(Eclipse_VERSION @PROJECT_VERSION@)
+set(Eclipse_INCLUDE_DIRS "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set(Eclipse_LIBRARIES Eclipse::EclipseCore)
+
+# Provide usage information
+if(NOT Eclipse_FIND_QUIETLY)
+    message(STATUS "Found Eclipse ${Eclipse_VERSION}")
+    message(STATUS "  Include directories: ${Eclipse_INCLUDE_DIRS}")
+    message(STATUS "  Libraries: ${Eclipse_LIBRARIES}")
+endif()
