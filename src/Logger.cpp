@@ -191,15 +191,14 @@ void Logger::logInternal(LogLevel level, const std::string& tag, const std::stri
     std::string timestamp = getTimestamp();
     std::string levelName = getLevelName(level);
     
-    // Calculate padding for alignment (using plain text length without ANSI codes)
-    std::string plainPrefix = "[" + timestamp + "] " + levelName + ": ";
+    std::string plainPrefix = "[" + timestamp + "] " + std::string(5, ' ') + ": ";
     std::string padding(plainPrefix.length(), ' ');
 
     // Main log line: [timestamp] level: ┏ [tag] message
     out << dim << "[" << timestamp << "] " << reset
-        << getColor(level) << levelName << reset
+        << getColor(level) << std::setw(5) << std::left << levelName << reset
         << white << ":" << reset
-        << white << "  ┏ [" << getColor(level) << tag << reset << "] " 
+        << white << " ┏ [" << getColor(level) << tag << reset << "] " 
         << white << message << reset << "\n";
 
     // Optional trace/details lines with correct box-drawing characters
