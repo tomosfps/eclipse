@@ -27,12 +27,12 @@
 #endif
 
 /**
- * @brief Constructor - Initialize logger with default INFO level
+ * @brief Constructor - Initialize logger with default DEBUG level
  * 
  * Private constructor implementing singleton pattern. Sets the initial
- * log level to INFO and attempts to load configuration from environment.
+ * log level to DEBUG and attempts to load configuration from environment.
  */
-Logger::Logger() : currentLevel(LogLevel::INFO) {
+Logger::Logger() : currentLevel(LogLevel::DEBUG) {
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hConsole != INVALID_HANDLE_VALUE) {
@@ -334,56 +334,240 @@ std::string Logger::getTimestamp() const {
 }
 
 /**
- * @brief Load log level configuration from environment file
+ * @brief Load log level configuration from configuration files
  * 
- * Attempts to read log level configuration from a ".env" file in the
- * current working directory. Supports both string-based and numeric
- * log level specifications.
+ * Attempts to read log level configuration from .env or .ini files in the
+ * current working directory. Tries .env first, then .ini if .env is not found.
+ * Falls back to DEBUG level if no configuration files are found or contain
+ * valid LOG_LEVEL settings.
  * 
- * Supported formats in .env file:
- * - String values: LOG_LEVEL=DEBUG, LOG_LEVEL=INFO, etc.
+ * Supported formats:
+ * - .env files: LOG_LEVEL=DEBUG, LOG_LEVEL=INFO, etc.
+ * - .ini files: LOG_LEVEL=DEBUG under [logging] section or standalone
  * - Numeric values: LOG_LEVEL=0 (DEBUG), LOG_LEVEL=1 (INFO), etc.
- * 
- * The search stops at the first LOG_LEVEL= line found. If the file
- * doesn't exist or contains no valid LOG_LEVEL setting, the default
- * level (INFO) is retained.
  * 
  * @note This method is called automatically during Logger initialization
  * @note The level setting is applied with thread-safe mutex protection
  */
 void Logger::loadEnvLogLevel() {
-    std::ifstream envFile(".env");
-    std::string line;
+    // Try to load from .env file first
+    if (parseEnvFile(".env")) {
+        return;
+    }
     
-    // Search for LOG_LEVEL setting in .env file
+    // If .env not found or doesn't contain LOG_LEVEL, try .ini
+    if (parseIniFile(".ini") || parseIniFile("config.ini") || parseIniFile("settings.ini")) {
+        return;
+    }
+    
+    // If no configuration found, explicitly set to DEBUG as fallback
+    std::lock_guard<std::mutex> lock(levelMutex);
+    currentLevel = LogLevel::DEBUG;
+}
+
+/**
+ * @brief Load log level from a specific configuration file
+ * 
+ * Loads configuration from a specified .env or .ini file path.
+ * Automatically detects file type based on extension and calls
+ * the appropriate parser.
+ * 
+ * @param configPath Path to the configuration file (.env or .ini)
+ * @return true if configuration was loaded successfully, false otherwise
+ * 
+ * @example
+ * @code
+ * Logger& logger = Logger::getInstance();
+ * if (logger.loadConfigFromFile("/path/to/config.ini")) {
+ *     // Configuration loaded successfully
+ * }
+ * @endcode
+ */
+bool Logger::loadConfigFromFile(const std::string& configPath) {
+    if (configPath.empty()) {
+        return false;
+    }
+    
+    // Determine file type by extension
+    size_t dotPos = configPath.find_last_of('.');
+    if (dotPos == std::string::npos) {
+        return false;
+    }
+    
+    std::string extension = configPath.substr(dotPos);
+    std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+    
+    if (extension == ".env") {
+        return parseEnvFile(configPath);
+    } else if (extension == ".ini") {
+        return parseIniFile(configPath);
+    }
+    
+    return false;
+}
+
+/**
+ * @brief Parse .env format configuration file
+ * 
+ * Parses a .env format file looking for LOG_LEVEL=value lines.
+ * Supports both string and numeric log level values.
+ * 
+ * @param filePath Path to the .env file
+ * @return true if LOG_LEVEL was found and parsed successfully, false otherwise
+ */
+bool Logger::parseEnvFile(const std::string& filePath) {
+    std::ifstream envFile(filePath);
+    if (!envFile.is_open()) {
+        return false;
+    }
+    
+    std::string line;
     while (std::getline(envFile, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        
         if (line.find("LOG_LEVEL=") == 0) {
             std::string levelStr = line.substr(10);
             
-            // Convert to uppercase for case-insensitive matching
-            std::transform(levelStr.begin(), levelStr.end(), levelStr.begin(), ::toupper);
-
-            // Mapping of string and numeric values to LogLevel enum
-            static const std::unordered_map<std::string, LogLevel> levelMap = {
-                {"DEBUG", LogLevel::DEBUG},
-                {"INFO", LogLevel::INFO},
-                {"WARNING", LogLevel::WARN},
-                {"ERROR", LogLevel::ERR},
-                
-                // Numeric representations
-                {"0", LogLevel::DEBUG},
-                {"1", LogLevel::INFO},
-                {"2", LogLevel::WARN},
-                {"3", LogLevel::ERR},
-            };
-
-            // Look up the level in our mapping
-            auto it = levelMap.find(levelStr);
-            if (it != levelMap.end()) {
+            LogLevel level;
+            if (parseLogLevelString(levelStr, level)) {
                 std::lock_guard<std::mutex> lock(levelMutex);
-                currentLevel = it->second;
+                currentLevel = level;
+                return true;
             }
             break;  // Stop at first LOG_LEVEL= line found
         }
     }
+    return false;
+}
+
+/**
+ * @brief Parse .ini format configuration file
+ * 
+ * Parses a .ini format file looking for LOG_LEVEL under [logging] section
+ * or as a standalone LOG_LEVEL=value line. Supports both sectioned and
+ * flat .ini file formats.
+ * 
+ * @param filePath Path to the .ini file
+ * @return true if LOG_LEVEL was found and parsed successfully, false otherwise
+ */
+bool Logger::parseIniFile(const std::string& filePath) {
+    std::ifstream iniFile(filePath);
+    if (!iniFile.is_open()) {
+        return false;
+    }
+    
+    std::string line;
+    bool inLoggingSection = false;
+    bool foundLogLevel = false;
+    
+    while (std::getline(iniFile, line)) {
+        // Remove leading/trailing whitespace
+        line.erase(0, line.find_first_not_of(" \t"));
+        line.erase(line.find_last_not_of(" \t\r\n") + 1);
+        
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == ';' || line[0] == '#') {
+            continue;
+        }
+        
+        // Check for section headers
+        if (line[0] == '[' && line.back() == ']') {
+            std::string sectionName = line.substr(1, line.length() - 2);
+            std::transform(sectionName.begin(), sectionName.end(), sectionName.begin(), ::tolower);
+            inLoggingSection = (sectionName == "logging" || sectionName == "log" 
+                             || sectionName == "debugging" || sectionName == "debug");
+            continue;
+        }
+        
+        // Look for LOG_LEVEL setting
+        size_t equalPos = line.find('=');
+        if (equalPos != std::string::npos) {
+            std::string key = line.substr(0, equalPos);
+            std::string value = line.substr(equalPos + 1);
+            
+            // Remove whitespace
+            key.erase(key.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t\r\n\"'") + 1);
+            
+            // Convert key to uppercase for case-insensitive matching
+            std::transform(key.begin(), key.end(), key.begin(), ::toupper);
+            
+            // Accept LOG_LEVEL in [logging] section or as standalone
+            if (key == "LOG_LEVEL" && (inLoggingSection || !foundLogLevel)) {
+                LogLevel level;
+                if (parseLogLevelString(value, level)) {
+                    std::lock_guard<std::mutex> lock(levelMutex);
+                    currentLevel = level;
+                    return true;
+                }
+                foundLogLevel = true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Convert string log level to LogLevel enum
+ * 
+ * Converts string representations (both text and numeric) to LogLevel enum.
+ * Supports case-insensitive string matching and numeric values.
+ * 
+ * @param levelStr String representation of log level
+ * @param outLevel Reference to store the converted LogLevel
+ * @return true if conversion was successful, false otherwise
+ * 
+ * Supported formats:
+ * - String: "DEBUG", "INFO", "WARNING", "ERROR" (case-insensitive)
+ * - Numeric: "0" (DEBUG), "1" (INFO), "2" (WARN), "3" (ERROR)
+ */
+bool Logger::parseLogLevelString(const std::string& levelStr, LogLevel& outLevel) {
+    if (levelStr.empty()) {
+        return false;
+    }
+    
+    // Remove leading and trailing whitespace and quotes
+    std::string cleanLevelStr = levelStr;
+    
+    // Remove leading whitespace and quotes
+    cleanLevelStr.erase(0, cleanLevelStr.find_first_not_of(" \t\r\n\"'"));
+    
+    // Remove trailing whitespace and quotes
+    cleanLevelStr.erase(cleanLevelStr.find_last_not_of(" \t\r\n\"'") + 1);
+    
+    if (cleanLevelStr.empty()) {
+        return false;
+    }
+    
+    // Convert to uppercase for case-insensitive matching
+    std::string upperLevelStr = cleanLevelStr;
+    std::transform(upperLevelStr.begin(), upperLevelStr.end(), upperLevelStr.begin(), ::toupper);
+    
+    // Mapping of string and numeric values to LogLevel enum
+    static const std::unordered_map<std::string, LogLevel> levelMap = {
+        {"DEBUG", LogLevel::DEBUG},
+        {"INFO", LogLevel::INFO},
+        {"WARNING", LogLevel::WARN},
+        {"WARN", LogLevel::WARN},
+        {"ERROR", LogLevel::ERR},
+        {"ERR", LogLevel::ERR},
+        
+        // Numeric representations
+        {"0", LogLevel::DEBUG},
+        {"1", LogLevel::INFO},
+        {"2", LogLevel::WARN},
+        {"3", LogLevel::ERR},
+    };
+    
+    auto it = levelMap.find(upperLevelStr);
+    if (it != levelMap.end()) {
+        outLevel = it->second;
+        return true;
+    }
+    
+    return false;
 }

@@ -104,13 +104,52 @@ add_library(Eclipse::Eclipse ALIAS Eclipse)
 
 # Optional: Build test executable
 option(BUILD_TESTS "Build test executables" ON)
-if(BUILD_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/main.cpp")
-    add_executable(EclipseTest test/main.cpp)
-    target_link_libraries(EclipseTest PRIVATE EclipseCore)
-    
-    # Enable testing
+option(FAIL_ON_TEST_FAILURE "Fail build if any tests fail" ON)
+
+# Enable testing if tests are requested
+if(BUILD_TESTS)
     enable_testing()
-    add_test(NAME EclipseBasicTest COMMAND EclipseTest)
+    
+    # Add the tests subdirectory
+    add_subdirectory(tests)
+    
+    # Create a comprehensive test validation target
+    if(FAIL_ON_TEST_FAILURE)
+        # Create a target that runs all tests and fails build if any test fails
+        add_custom_target(validate_build
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Validating build with comprehensive test suite"
+            DEPENDS test_logger test_config_edge_cases test_thread_safety
+        )
+        
+        # Make validate_build part of the default build when BUILD_TESTS=ON
+        add_custom_target(build_and_validate ALL
+            DEPENDS EclipseCore validate_build
+            COMMENT "Building library and running validation tests"
+        )
+        
+        # Optional: Add post-build test execution to EclipseCore itself
+        add_custom_command(TARGET EclipseCore POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "Library built successfully - running validation tests..."
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Running post-build validation tests"
+        )
+    else()
+        # Just build tests but don't run them automatically
+        add_custom_target(build_tests_only
+            DEPENDS test_logger test_config_edge_cases test_thread_safety
+            COMMENT "Building test executables (tests not run automatically)"
+        )
+    endif()
+    
+    # Legacy test support for backward compatibility
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/main.cpp")
+        add_executable(EclipseTest test/main.cpp)
+        target_link_libraries(EclipseTest PRIVATE EclipseCore)
+        add_test(NAME EclipseBasicTest COMMAND EclipseTest)
+    endif()
 endif()
 
 # Installation configuration
@@ -181,6 +220,7 @@ message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "  Build tests: ${BUILD_TESTS}")
+message(STATUS "  Fail on test failure: ${FAIL_ON_TEST_FAILURE}")
 if(WIN32)
     message(STATUS "  Platform: Windows")
 elseif(APPLE)

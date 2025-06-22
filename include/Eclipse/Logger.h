@@ -85,6 +85,24 @@ public:
      * @note This method is thread-safe
      */
     LogLevel getLogLevel() const;
+    
+    /**
+     * @brief Load configuration from a specific file path
+     * 
+     * Allows loading log level configuration from a custom .env or .ini file.
+     * Supports both absolute and relative paths. File type is determined by
+     * extension (.env or .ini).
+     * 
+     * @param configPath Path to the configuration file
+     * @return true if configuration was loaded successfully, false otherwise
+     * 
+     * @example
+     * @code
+     * Logger& logger = Logger::getInstance();
+     * logger.loadConfigFromFile("./config/logging.ini");
+     * @endcode
+     */
+    bool loadConfigFromFile(const std::string& configPath);
 
 private:
     /**
@@ -96,15 +114,50 @@ private:
     Logger();
     
     /**
-     * @brief Load log level configuration from .env file
+     * @brief Load log level configuration from configuration files
      * 
-     * Searches for LOG_LEVEL setting in a .env file in the current directory.
+     * Searches for LOG_LEVEL setting in .env or .ini files. If no custom path
+     * is provided, looks for .env and .ini files in the current directory.
+     * Falls back to DEBUG level if no configuration is found.
+     * 
      * Supports both string values (DEBUG, INFO, WARNING, ERROR) and
      * numeric values (0-3).
      * 
      * @note This method is called automatically during initialization
      */
     void loadEnvLogLevel();
+    
+    /**
+     * @brief Parse .env format configuration file
+     * 
+     * Parses a .env format file looking for LOG_LEVEL=value lines.
+     * 
+     * @param filePath Path to the .env file
+     * @return true if LOG_LEVEL was found and parsed, false otherwise
+     */
+    bool parseEnvFile(const std::string& filePath);
+    
+    /**
+     * @brief Parse .ini format configuration file
+     * 
+     * Parses a .ini format file looking for LOG_LEVEL under [logging] section
+     * or as a standalone LOG_LEVEL=value line.
+     * 
+     * @param filePath Path to the .ini file
+     * @return true if LOG_LEVEL was found and parsed, false otherwise
+     */
+    bool parseIniFile(const std::string& filePath);
+    
+    /**
+     * @brief Convert string log level to LogLevel enum
+     * 
+     * Converts string representations (both text and numeric) to LogLevel enum.
+     * 
+     * @param levelStr String representation of log level
+     * @param outLevel Reference to store the converted LogLevel
+     * @return true if conversion was successful, false otherwise
+     */
+    bool parseLogLevelString(const std::string& levelStr, LogLevel& outLevel);
 
     /**
      * @brief Internal logging implementation with formatting and output
@@ -200,7 +253,7 @@ private:
     */
     std::string extractFilename(const std::string& trace) const;
 
-    LogLevel currentLevel = LogLevel::DEBUG;    ///< Current minimum log level threshold
+    LogLevel currentLevel = LogLevel::DEBUG;    ///< Current minimum log level threshold (defaults to DEBUG)
     mutable std::mutex logMutex;                ///< Mutex for thread-safe log output
     mutable std::mutex levelMutex;              ///< Mutex for thread-safe level access
 
