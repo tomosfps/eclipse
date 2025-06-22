@@ -103,6 +103,16 @@ public:
      * @endcode
      */
     bool loadConfigFromFile(const std::string& configPath);
+    
+    /**
+     * @brief Get the name of the current log level
+     *
+     * Returns a string representation of the current log level, e.g., "DEBUG", "INFO".
+     * This can be useful for logging or displaying the current configuration.
+     *
+     * @return String name of the current log level
+     */
+    std::string getLogLevelName() const;
 
 private:
     /**

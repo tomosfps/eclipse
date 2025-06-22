@@ -512,6 +512,19 @@ bool Logger::parseIniFile(const std::string& filePath) {
 }
 
 /**
+ * @brief Get the name of the current log level
+ *
+ * Returns a string representation of the current log level, e.g., "DEBUG", "INFO".
+ * This can be useful for logging or displaying the current configuration.
+ *
+ * @return String name of the current log level
+*/
+std::string Logger::getLogLevelName() const {
+    std::lock_guard<std::mutex> lock(levelMutex);
+    return getLevelName(currentLevel);
+}
+
+/**
  * @brief Convert string log level to LogLevel enum
  * 
  * Converts string representations (both text and numeric) to LogLevel enum.
