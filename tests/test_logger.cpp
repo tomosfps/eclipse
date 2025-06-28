@@ -7,41 +7,53 @@
 #include <filesystem>
 
 // Simple test framework
-class TestRunner {
+class TestRunner
+{
 private:
     int totalTests = 0;
     int passedTests = 0;
     std::ostringstream output;
 
 public:
-    void test(const std::string& testName, bool condition) {
+    void test(const std::string &testName, bool condition)
+    {
         totalTests++;
         output << "[TEST] " << testName << ": ";
-        if (condition) {
+        if (condition)
+        {
             output << "PASSED\n";
             passedTests++;
-        } else {
+        }
+        else
+        {
             output << "FAILED\n";
         }
     }
 
-    bool runAll() {
+    bool runAll()
+    {
         std::cout << output.str();
         std::cout << "\n=== Test Summary ===\n";
         std::cout << "Passed: " << passedTests << "/" << totalTests << std::endl;
-        
-        if (passedTests == totalTests) {
-            std::cout << "All tests PASSED!\n" << std::endl;
+
+        if (passedTests == totalTests)
+        {
+            std::cout << "All tests PASSED!\n"
+                      << std::endl;
             return true;
-        } else {
-            std::cout << "Some tests FAILED!\n" << std::endl;
+        }
+        else
+        {
+            std::cout << "Some tests FAILED!\n"
+                      << std::endl;
             return false;
         }
     }
 };
 
 // Helper function to create test config files
-void createTestConfigFiles() {
+void createTestConfigFiles()
+{
     // Create test .env file
     std::ofstream envFile("test_debug.env");
     envFile << "LOG_LEVEL=DEBUG\n";
@@ -65,12 +77,13 @@ void createTestConfigFiles() {
 
     // Create numeric test files
     std::ofstream numFile("test_numeric.env");
-    numFile << "LOG_LEVEL=2\n";  // WARN level
+    numFile << "LOG_LEVEL=2\n"; // WARN level
     numFile.close();
 }
 
 // Helper function to clean up test files
-void cleanupTestFiles() {
+void cleanupTestFiles()
+{
     std::filesystem::remove("test_debug.env");
     std::filesystem::remove("test_info.env");
     std::filesystem::remove("test_warn.ini");
@@ -79,126 +92,135 @@ void cleanupTestFiles() {
 }
 
 // Test the singleton pattern
-void testSingletonPattern(TestRunner& runner) {
-    Logger& logger1 = Logger::getInstance();
-    Logger& logger2 = Logger::getInstance();
-    
+void testSingletonPattern(TestRunner &runner)
+{
+    Logger &logger1 = Logger::getInstance();
+    Logger &logger2 = Logger::getInstance();
+
     runner.test("Singleton Pattern", &logger1 == &logger2);
 }
 
 // Test default log level
-void testDefaultLogLevel(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
+void testDefaultLogLevel(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
     LogLevel defaultLevel = logger.getLogLevel();
-    
-    // Should default to DEBUG
-    runner.test("Default Log Level is DEBUG", defaultLevel == LogLevel::DEBUG);
+
+    // Should default to ECLIPSE_DEBUG
+    runner.test("Default Log Level is ECLIPSE_DEBUG", defaultLevel == LogLevel::ECLIPSE_DEBUG);
 }
 
 // Test log level setting and getting
-void testLogLevelManagement(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    
+void testLogLevelManagement(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+
     // Test setting different levels
-    logger.setLogLevel(LogLevel::INFO);
-    runner.test("Set/Get INFO Level", logger.getLogLevel() == LogLevel::INFO);
-    
-    logger.setLogLevel(LogLevel::WARN);
-    runner.test("Set/Get WARN Level", logger.getLogLevel() == LogLevel::WARN);
-    
-    logger.setLogLevel(LogLevel::ERR);
-    runner.test("Set/Get ERROR Level", logger.getLogLevel() == LogLevel::ERR);
-    
-    logger.setLogLevel(LogLevel::DEBUG);
-    runner.test("Set/Get DEBUG Level", logger.getLogLevel() == LogLevel::DEBUG);
+    logger.setLogLevel(LogLevel::ECLIPSE_INFO);
+    runner.test("Set/Get ECLIPSE_INFO Level", logger.getLogLevel() == LogLevel::ECLIPSE_INFO);
+
+    logger.setLogLevel(LogLevel::ECLIPSE_WARN);
+    runner.test("Set/Get ECLIPSE_WARN Level", logger.getLogLevel() == LogLevel::ECLIPSE_WARN);
+
+    logger.setLogLevel(LogLevel::ECLIPSE_ERROR);
+    runner.test("Set/Get ECLIPSE_ERROR Level", logger.getLogLevel() == LogLevel::ECLIPSE_ERROR);
+
+    logger.setLogLevel(LogLevel::ECLIPSE_DEBUG);
+    runner.test("Set/Get ECLIPSE_DEBUG Level", logger.getLogLevel() == LogLevel::ECLIPSE_DEBUG);
 }
 
 // Test .env file parsing
-void testEnvFileParsing(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    
-    // Test DEBUG level from .env
+void testEnvFileParsing(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+
+    // Test ECLIPSE_DEBUG level from .env
     bool loaded1 = logger.loadConfigFromFile("test_debug.env");
-    runner.test("Load .env file (DEBUG)", loaded1 && logger.getLogLevel() == LogLevel::DEBUG);
-    
-    // Test INFO level from .env
+    runner.test("Load .env file (ECLIPSE_DEBUG)", loaded1 && logger.getLogLevel() == LogLevel::ECLIPSE_DEBUG);
+
+    // Test ECLIPSE_INFO level from .env
     bool loaded2 = logger.loadConfigFromFile("test_info.env");
-    runner.test("Load .env file (INFO)", loaded2 && logger.getLogLevel() == LogLevel::INFO);
-    
+    runner.test("Load .env file (ECLIPSE_INFO)", loaded2 && logger.getLogLevel() == LogLevel::ECLIPSE_INFO);
+
     // Test numeric format
     bool loaded3 = logger.loadConfigFromFile("test_numeric.env");
-    runner.test("Load .env file (Numeric WARN)", loaded3 && logger.getLogLevel() == LogLevel::WARN);
+    runner.test("Load .env file (Numeric ECLIPSE_WARN)", loaded3 && logger.getLogLevel() == LogLevel::ECLIPSE_WARN);
 }
 
 // Test .ini file parsing
-void testIniFileParsing(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    
-    // Test WARN level from .ini with [logging] section
+void testIniFileParsing(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+
+    // Test ECLIPSE_WARN level from .ini with [logging] section
     bool loaded1 = logger.loadConfigFromFile("test_warn.ini");
-    runner.test("Load .ini file with [logging] section", loaded1 && logger.getLogLevel() == LogLevel::WARN);
-    
-    // Test ERROR level from standalone .ini
+    runner.test("Load .ini file with [logging] section", loaded1 && logger.getLogLevel() == LogLevel::ECLIPSE_WARN);
+
+    // Test ECLIPSE_ERROR level from standalone .ini
     bool loaded2 = logger.loadConfigFromFile("test_error.ini");
-    runner.test("Load standalone .ini file", loaded2 && logger.getLogLevel() == LogLevel::ERR);
+    runner.test("Load standalone .ini file", loaded2 && logger.getLogLevel() == LogLevel::ECLIPSE_ERROR);
 }
 
 // Test error handling
-void testErrorHandling(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    
+void testErrorHandling(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+
     // Test non-existent file
     bool loaded1 = logger.loadConfigFromFile("nonexistent.env");
     runner.test("Handle non-existent file", !loaded1);
-    
+
     // Test unsupported extension
     bool loaded2 = logger.loadConfigFromFile("test.txt");
     runner.test("Handle unsupported extension", !loaded2);
-    
+
     // Test empty path
     bool loaded3 = logger.loadConfigFromFile("");
     runner.test("Handle empty path", !loaded3);
 }
 
 // Test macro compilation and basic functionality
-void testMacroCompilation(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    logger.setLogLevel(LogLevel::DEBUG);
-    
+void testMacroCompilation(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+    logger.setLogLevel(LogLevel::ECLIPSE_DEBUG);
+
     // Capture stdout to verify macros compile and run
     std::ostringstream capturedOutput;
-    std::streambuf* originalCoutBuffer = std::cout.rdbuf();
+    std::streambuf *originalCoutBuffer = std::cout.rdbuf();
     std::cout.rdbuf(capturedOutput.rdbuf());
-    
-    try {
+
+    try
+    {
         // Test basic macros
         LOG_DEBUG("TEST", "Debug test message");
         LOG_INFO("TEST", "Info test message");
         LOG_WARNING("TEST", "Warning test message");
         LOG_ERROR("TEST", "Error test message");
-        
+
         // Test detailed macros
         LOG_DEBUG_DETAILS("TEST", "Debug with details", "Additional info");
         LOG_INFO_DETAILS("TEST", "Info with details", "Additional info");
         LOG_WARNING_DETAILS("TEST", "Warning with details", "Additional info");
         LOG_ERROR_DETAILS("TEST", "Error with details", "Additional info");
-        
+
         std::cout.rdbuf(originalCoutBuffer);
-        
+
         std::string output = capturedOutput.str();
         bool hasContent = !output.empty();
         bool hasDebug = output.find("debug") != std::string::npos;
         bool hasInfo = output.find("info") != std::string::npos;
         bool hasWarning = output.find("warn") != std::string::npos;
         bool hasError = output.find("error") != std::string::npos;
-        
+
         runner.test("Macros compile and execute", hasContent);
         runner.test("Debug macro works", hasDebug);
         runner.test("Info macro works", hasInfo);
         runner.test("Warning macro works", hasWarning);
         runner.test("Error macro works", hasError);
-        
-    } catch (...) {
+    }
+    catch (...)
+    {
         std::cout.rdbuf(originalCoutBuffer);
         runner.test("Macros compile and execute", false);
         runner.test("Debug macro works", false);
@@ -209,40 +231,44 @@ void testMacroCompilation(TestRunner& runner) {
 }
 
 // Test log level filtering
-void testLogLevelFiltering(TestRunner& runner) {
-    Logger& logger = Logger::getInstance();
-    
+void testLogLevelFiltering(TestRunner &runner)
+{
+    Logger &logger = Logger::getInstance();
+
     // Capture stdout
     std::ostringstream capturedOutput;
-    std::streambuf* originalCoutBuffer = std::cout.rdbuf();
+    std::streambuf *originalCoutBuffer = std::cout.rdbuf();
     std::cout.rdbuf(capturedOutput.rdbuf());
-    
-    // Set to WARN level - should filter out DEBUG and INFO
-    logger.setLogLevel(LogLevel::WARN);
-    
+
+    // Set to ECLIPSE_WARN level - should filter out ECLIPSE_DEBUG and ECLIPSE_INFO
+    logger.setLogLevel(LogLevel::ECLIPSE_WARN);
+
     LOG_DEBUG("FILTER", "This should be filtered");
     LOG_INFO("FILTER", "This should be filtered");
     LOG_WARNING("FILTER", "This should appear");
     LOG_ERROR("FILTER", "This should appear");
-    
+
     std::cout.rdbuf(originalCoutBuffer);
     std::string output = capturedOutput.str();
-    
+
     bool noDebug = output.find("This should be filtered") == std::string::npos;
     bool hasWarning = output.find("This should appear") != std::string::npos;
-    
+
     runner.test("Log level filtering works", noDebug && hasWarning);
 }
 
-int main() {
-    std::cout << "=== Eclipse Logger Test Suite ===\n" << std::endl;
-    
+int main()
+{
+    std::cout << "=== Eclipse Logger Test Suite ===\n"
+              << std::endl;
+
     TestRunner runner;
-    
+
     // Create test files
     createTestConfigFiles();
-    
-    try {
+
+    try
+    {
         // Run all tests
         testSingletonPattern(runner);
         testDefaultLogLevel(runner);
@@ -252,20 +278,23 @@ int main() {
         testErrorHandling(runner);
         testMacroCompilation(runner);
         testLogLevelFiltering(runner);
-        
+
         // Clean up
         cleanupTestFiles();
-        
+
         // Show results
         bool allPassed = runner.runAll();
-        
+
         return allPassed ? 0 : 1;
-        
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         cleanupTestFiles();
         std::cerr << "Test execution failed with exception: " << e.what() << std::endl;
         return 1;
-    } catch (...) {
+    }
+    catch (...)
+    {
         cleanupTestFiles();
         std::cerr << "Test execution failed with unknown exception" << std::endl;
         return 1;

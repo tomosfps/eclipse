@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
-# Project information
 project(Eclipse 
-    VERSION 1.0.0
+    VERSION 1.0.3
     DESCRIPTION "A minimal, colorful C++ logging library"
     LANGUAGES CXX
 )
