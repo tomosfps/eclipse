@@ -1,241 +1,354 @@
-# Eclipse
+# Eclipse Logging Library
 
-A minimal, colorful C++ logging library designed for use across multiple projects. Eclipse provides clean, structured log output with colored formatting, timestamps, and trace information to help you debug and monitor your applications effectively.
-
-> [!CAUTION]
-> Your terminal will need to support UTF8, otherwise some characters may not work.
+A lightweight, thread-safe C++ logging library designed for modern applications.
 
 ## Features
 
-Eclipse is a lightweight logging solution that offers:
-
-- **Multiple Log Levels**: DEBUG, INFO, WARNING, ERROR with configurable filtering
-- **Colored Output**: Different colors for each log level for better readability
-- **Timestamps**: Automatic timestamp generation for each log entry
-- **Trace Information**: File, line, and function information for debugging
-- **Environment Configuration**: Set log levels via `.env` file
-- **Singleton Pattern**: Global access without repeated instantiation
+- **Thread-Safe**: Full thread safety for multi-threaded applications
+- **Multiple Log Levels**: DEBUG, INFO, WARN, ERROR, FATAL, and NONE
+- **Flexible Output**: Console, file, both, or no output
+- **Configuration Files**: Load settings from INI-style configuration files
+- **Convenient Macros**: Easy-to-use logging macros with automatic trace information
 - **Cross-Platform**: Works on Windows, Linux, and macOS
+- **Modern C++**: Built with C++17 standard
+- **Singleton Pattern**: Global access with controlled instantiation
+- **Colorized Output**: ANSI color codes for console output
+- **Assertion Support**: Built-in assertion functionality with logging
 
-## Features 
-___
+## Quick Start
 
-- [x] Colored output for different log levels
-- [x] Timestamp generation
-- [x] Environment variable configuration
-- [x] Trace information (file, line, function)
-- [x] Singleton pattern for global access
-- [x] Thread-safe logging
-
-## Build
-
-If you'd like to build the project yourself, you'll need CMake and a C++17 compatible compiler:
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/tomosfps/eclipse.git
-   cd eclipse
-   ```
-
-2. Create a build directory:
-   ```bash
-   mkdir build
-   cd build
-   ```
-
-3. Configure the project:
-   ```bash
-   # Basic configuration (Debug is default)
-   cmake ..
-   
-   # Specify build type:
-   cmake -DCMAKE_BUILD_TYPE=Debug ..         # Debug build with symbols
-   cmake -DCMAKE_BUILD_TYPE=Release ..       # Optimized release build
-   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo .. # Release with debug symbols
-   cmake -DCMAKE_BUILD_TYPE=MinSizeRel ..    # Size-optimized release
-   
-   # Additional options:
-   cmake -DBUILD_TESTS=OFF ..               # Disable tests
-   cmake -DCMAKE_INSTALL_PREFIX=/custom/path .. # Custom install location
-   ```
-
-4. Build the library:
-   ```bash
-   cmake --build .
-   ```
-
-### Global Installation
-
-To install Eclipse globally for use in other projects:
-
-1. Complete the build steps above
-
-2. Install the library:
-
-    - **On Linux/macOS:**
-      ```bash
-      sudo cmake --install .
-      ```
-
-    - **On Windows (from the build directory):**
-      ```powershell
-      cmake --install . --config Release
-      ```
-      > **Note:** You may need to run your terminal as Administrator if installing to a system location.
-
-3. In your project's `CMakeLists.txt`:
-   ```cmake
-   cmake_minimum_required(VERSION 3.15)
-   project(YourProject)
-
-   find_package(Eclipse REQUIRED)
-
-   add_executable(${PROJECT_NAME} main.cpp)
-   target_link_libraries(${PROJECT_NAME} PRIVATE Eclipse::EclipseCore)
-   ```
-
-## Usage
-
-### Basic Usage with Macros (Recommended)
-
-The easiest way to use Eclipse is through the provided macros:
+### Basic Usage
 
 ```cpp
-#include <Eclipse/LogMacros.h>
+#include "Eclipse/Logger.h"
+#include "Eclipse/Macros.h"
 
 int main() {
-    LOG_INFO("APP", "Application started successfully");
-    LOG_WARNING("CONFIG", "Using default configuration");
-    LOG_ERROR("DATABASE", "Failed to connect to database");
-    LOG_DEBUG("NETWORK", "Sending HTTP request");
-    LOG_INFO_DETAILS("USER", "User logged in", "Username: john_doe");
-    LOG_ERROR_DETAILS("AUTH", "Authentication failed", "Invalid credentials provided");
+    // Get the logger instance
+    Eclipse::Logger &logger = Eclipse::Logger::getInstance();
+    
+    // Set logging level
+    logger.setLevel(Eclipse::ELevel::ECLIPSE_DEBUG);
+    
+    // Use convenient macros for logging
+    ECLIPSE_INFO("App", "Application started");
+    ECLIPSE_DEBUG("Database", "Connection established", "host=localhost");
+    ECLIPSE_WARNING("Memory", "High memory usage", "usage=85%");
+    ECLIPSE_ERROR("Network", "Connection failed", "timeout=30s");
+    ECLIPSE_FATAL("System", "Critical failure", "component=core");
     
     return 0;
 }
 ```
 
-### Direct Logger Usage
-
-You can also use the Logger class directly:
+### File Logging
 
 ```cpp
-#include <Eclipse/Logger.h>
+#include "Eclipse/Logger.h"
+#include "Eclipse/Macros.h"
 
 int main() {
-    Logger& logger = Logger::getInstance();
+    Eclipse::Logger &logger = Eclipse::Logger::getInstance();
     
-    // Set log level (optional, default is INFO)
-    logger.setLogLevel(LogLevel::DEBUG);
+    // Set up file logging
+    logger.setLogFile("application.log");
+    logger.setOutputDestination(Eclipse::EOutput::BOTH); // Console and file
     
-    // Note: Direct usage requires implementing the friend functions
-    // or using the macro interface shown above
+    ECLIPSE_INFO("System", "Logging to file enabled");
+    
+    // Close log file when done
+    logger.closeLogFile();
     
     return 0;
 }
 ```
 
-### Environment Configuration
+### Configuration File
 
-Create a `.env` file in your project root to configure the log level:
+Create a configuration file (e.g., `config.ini`):
 
-```env
-LOG_LEVEL=DEBUG
+```ini
+[application]
+name=MyApp
+version=1.0.0
+
+[logging]
+ECLIPSE_LOG_LEVEL=INFO
+
+[database]
+host=localhost
+port=5432
 ```
 
-Supported values:
-- `DEBUG` or `0` - Show all messages
-- `INFO` or `1` - Show info, warning, and error messages (default)
-- `WARNING` or `2` - Show warning and error messages only
-- `ERROR` or `3` - Show error messages only
-
-### Log Output Format
-
-Eclipse produces clean, structured output like this:
-
-```
-[2025-06-21 14:30:15] info: ┏ [APP] Application started successfully
-  ┃ at main.cpp:10 [main]
-
-[2025-06-21 14:30:15] warn: ┏ [CONFIG] Using default configuration  
-  ┃ at main.cpp:11 [main]
-
-[2025-06-21 14:30:15] error: ┏ [AUTH] Authentication failed
-  ┃ at auth.cpp:25 [authenticate]
-  ┗ [1] Invalid credentials provided
-```
-
-## Available Log Levels
-
-| Level   | Color | Description |
-|---------|-------|-------------|
-| DEBUG   | Cyan  | Detailed debugging information |
-| INFO    | Green | General information messages |
-| WARNING | Yellow| Warning messages for potential issues |
-| ERROR   | Red   | Error messages for serious problems |
-
-## Integration Examples
-
-### Simple Application
+Load configuration in your application:
 
 ```cpp
-#include <Eclipse/LogMacros.h>
+Eclipse::Logger &logger = Eclipse::Logger::getInstance();
+bool success = logger.loadConfig("config.ini");
+if (success) {
+    ECLIPSE_INFO("Config", "Configuration loaded successfully");
+}
+```
+
+## Building
+
+### Prerequisites
+
+- CMake 3.16 or higher
+- C++17 compatible compiler (GCC, Clang, MSVC)
+- Git (for cloning)
+
+### Build Instructions
+
+```bash
+# Clone the repository
+git clone https://github.com/tomosfps/eclipse.git
+cd eclipse
+
+# Create build directory
+mkdir build
+cd build
+
+# Configure with CMake
+cmake ..
+
+# Build the library
+cmake --build .
+
+# Run tests
+ctest
+```
+
+### Integration with CMake
+
+Add Eclipse to your CMake project:
+
+```cmake
+# If Eclipse is a subdirectory in your project
+add_subdirectory(eclipse)
+
+# Link Eclipse to your target
+target_link_libraries(your_target Eclipse)
+
+# Include Eclipse headers
+target_include_directories(your_target PRIVATE eclipse/include)
+```
+
+## API Reference
+
+### Log Levels
+
+| Level | Description |
+|-------|-------------|
+| `ECLIPSE_DEBUG` | Most verbose, detailed diagnostic information |
+| `ECLIPSE_INFO` | General informational messages |
+| `ECLIPSE_WARN` | Potentially harmful situations |
+| `ECLIPSE_ERROR` | Error events that might allow application to continue |
+| `ECLIPSE_FATAL` | Very severe errors that may cause application abort |
+| `ECLIPSE_NONE` | Disables all logging |
+
+### Output Destinations
+
+| Destination | Description |
+|-------------|-------------|
+| `CONSOLE` | Output to console/terminal only |
+| `FILE` | Output to log file only |
+| `BOTH` | Output to both console and file |
+| `NONE` | Suppress all log output |
+
+### Core Methods
+
+```cpp
+// Get singleton instance
+Logger& logger = Logger::getInstance();
+
+// Set minimum log level
+logger.setLevel(ELevel::ECLIPSE_INFO);
+
+// Set output destination
+logger.setOutputDestination(EOutput::BOTH);
+
+// Set log file
+logger.setLogFile("app.log");
+
+// Load configuration
+bool success = logger.loadConfig("config.ini");
+
+// Manual logging
+logger.log(ELevel::ECLIPSE_INFO, "tag", "message", details, trace);
+
+// Assertions
+bool result = logger.assert(condition, "tag", "message");
+```
+
+### Logging Macros
+
+```cpp
+// Basic logging macros (automatically include trace information)
+ECLIPSE_DEBUG("tag", "message", "detail1", "detail2");
+ECLIPSE_INFO("tag", "message");
+ECLIPSE_WARNING("tag", "message", "additional_info");
+ECLIPSE_ERROR("tag", "message", "error_code=500");
+ECLIPSE_FATAL("tag", "message", "component=core");
+
+// Assertion macro
+ECLIPSE_ASSERT(ptr != nullptr, "Memory", "Null pointer detected", "variable=ptr");
+```
+
+## Configuration File Format
+
+Eclipse supports INI-style configuration files with the following format:
+
+```ini
+[logging]
+ECLIPSE_LOG_LEVEL=INFO    # Valid values: DEBUG, INFO, WARN, ERROR, FATAL, NONE
+
+[application]
+name=YourApp
+version=1.0.0
+
+# Other sections for your application configuration
+[database]
+host=localhost
+port=5432
+```
+
+## Examples
+
+### Multi-threaded Logging
+
+```cpp
+#include "Eclipse/Logger.h"
+#include "Eclipse/Macros.h"
+#include <thread>
+#include <vector>
+
+void worker_thread(int id) {
+    for (int i = 0; i < 10; ++i) {
+        ECLIPSE_INFO("Worker", "Processing task", 
+                    "thread_id=" + std::to_string(id),
+                    "task=" + std::to_string(i));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
 
 int main() {
-    LOG_INFO("STARTUP", "Initializing application");
+    Eclipse::Logger &logger = Eclipse::Logger::getInstance();
+    logger.setLevel(Eclipse::ELevel::ECLIPSE_DEBUG);
     
-    try {
-        // Your application logic
-        LOG_DEBUG("LOGIC", "Processing data");
-    } catch (const std::exception& e) {
-        LOG_ERROR_DETAILS("EXCEPTION", "Unhandled exception", e.what());
-        return 1;
+    std::vector<std::thread> threads;
+    
+    // Start multiple worker threads
+    for (int i = 0; i < 4; ++i) {
+        threads.emplace_back(worker_thread, i);
     }
     
-    LOG_INFO("SHUTDOWN", "Application finished successfully");
+    // Wait for all threads to complete
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    ECLIPSE_INFO("Main", "All threads completed");
     return 0;
 }
 ```
 
-### Multiple Files
+### Advanced Configuration
 
-**main.cpp**
 ```cpp
-#include <Eclipse/LogMacros.h>
-#include "utils.h"
+#include "Eclipse/Logger.h"
+#include "Eclipse/Macros.h"
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
-int main() {
-    LOG_INFO("MAIN", "Starting application");
-    processData();
-    LOG_INFO("MAIN", "Application completed");
-    return 0;
-}
+class Application {
+private:
+    Eclipse::Logger &logger;
+        
+public:
+    Application() : logger(Eclipse::Logger::getInstance()) {
+        // Load configuration
+        if (!logger.loadConfig("app.config")) {
+            ECLIPSE_WARNING("Config", "Could not load config file, using defaults");
+        }
+        
+        // Set up file logging with timestamp
+        std::string logFile = "app_" + logger.getTimestamp() + ".log";
+        logger.setLogFile(logFile);
+        logger.setOutputDestination(Eclipse::EOutput::BOTH);
+        
+        ECLIPSE_INFO("App", "Application initialized", "config=loaded", "logging=enabled");
+    }
+    
+    void run() {
+        ECLIPSE_INFO("App", "Application starting");
+        
+        try {
+            // Application logic here
+            processData();
+        } catch (const std::exception& e) {
+            ECLIPSE_ERROR("App", "Exception caught", "what=" + std::string(e.what()));
+        }
+        
+        ECLIPSE_INFO("App", "Application finished");
+    }
+    
+private:
+    void processData() {
+        ECLIPSE_DEBUG("Processing", "Starting data processing");
+        
+        // Simulate some work with assertions
+        std::vector<int> data;
+        data.resize(1024);
+        
+        ECLIPSE_ASSERT(!data.empty(), "Memory", "Failed to allocate data buffer");
+        
+        if (!data.empty()) {
+            ECLIPSE_DEBUG("Processing", "Data allocated successfully", "size=1024");
+            // Process data...
+            std::fill(data.begin(), data.end(), 42);
+            ECLIPSE_DEBUG("Processing", "Data processing completed");
+        }
+    }
+};
 ```
 
-**utils.h**
-```cpp
-#pragma once
-void processData();
+## Testing
+
+The library includes comprehensive tests covering:
+
+- Basic logging functionality
+- Thread safety
+- Configuration file loading
+- File output
+- Advanced features
+
+Run tests with:
+
+```bash
+cd build
+ctest --verbose
 ```
 
-**utils.cpp**
-```cpp
-#include "utils.h"
-#include <Eclipse/LogMacros.h>
+## Thread Safety
 
-void processData() {
-    LOG_DEBUG("UTILS", "Processing data started");
-    // Your processing logic here
-    LOG_DEBUG("UTILS", "Processing data completed");
-}
-```
+Eclipse is fully thread-safe and uses multiple mutexes to ensure safe concurrent access:
 
-## Requirements
+- `logMutex`: Protects logging operations
+- `levelMutex`: Protects level changes
+- `fileMutex`: Protects file operations
 
-- C++17 compatible compiler
-- CMake 3.15 or higher
-- Standard C++ library
+You can safely use Eclipse from multiple threads without additional synchronization.
+
+## Performance Considerations
+
+- The singleton pattern ensures minimal overhead
+- File I/O is only performed when necessary
+- Color codes are only applied for console output
+- Log level filtering happens early to avoid unnecessary string operations
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

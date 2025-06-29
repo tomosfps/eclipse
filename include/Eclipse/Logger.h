@@ -3,293 +3,233 @@
  * @brief Eclipse Logging Library - Core logging functionality
  * @author tomosfps
  * @date 2025
- * @version 1.0.3
+ * @version 2.0.0
  */
 
 #pragma once
-#include <string>
+
 #include <mutex>
+#include <string>
+#include <vector>
+#include <fstream>
 
-/**
- * @brief Enumeration of available log levels
- *
- * Log levels are ordered by severity, with ECLIPSE_DEBUG being the lowest
- * and ECLIPSE_ERROR being the highest. ECLIPSE_NONE can be used to disable all logging.
- */
-enum class LogLevel
+namespace Eclipse
 {
-    ECLIPSE_DEBUG, ///< Detailed information for debugging purposes
-    ECLIPSE_INFO,  ///< General information about program execution
-    ECLIPSE_WARN,  ///< Warning messages for potentially harmful situations
-    ECLIPSE_ERROR, ///< Error messages for serious problems
-    ECLIPSE_NONE   ///< No logging (disables all log output)
-};
-
-/**
- * @brief Thread-safe singleton logger class for structured logging
- *
- * The Logger class provides a centralized logging system with colored output,
- * timestamps, and structured formatting using Unicode box-drawing characters.
- * It implements the singleton pattern to ensure global access and consistent
- * configuration across an application.
- *
- * Features:
- * - Thread-safe operations using mutexes
- * - Colored output based on log levels
- * - Structured output with box-drawing characters (┏┃┗)
- * - Environment-based configuration via .env and .ini files
- * - Multiple log levels with filtering
- * - Conflict-free ECLIPSE_* prefixed log levels
- *
- * @note This class is designed to be used through the LOG_* macros defined
- *       in LogMacros.h for convenience and automatic trace information.
- *
- * @example
- * @code
- * Logger& logger = Logger::getInstance();
- * logger.setLogLevel(LogLevel::ECLIPSE_DEBUG);
- * // Use through macros: LOG_INFO("TAG", "Message");
- * @endcode
- */
-class Logger
-{
-public:
     /**
-     * @brief Get the singleton instance of the Logger
+     * @brief Enumeration of available logging levels
      *
-     * This method implements thread-safe lazy initialization using std::call_once
-     * to ensure only one Logger instance exists throughout the application lifetime.
-     *
-     * @return Reference to the singleton Logger instance
-     * @note This method is thread-safe
+     * Defines the severity levels for log messages, from most verbose (DEBUG)
+     * to most critical (FATAL). NONE can be used to disable all logging.
      */
-    static Logger &getInstance();
+    enum class ELevel
+    {
+        ECLIPSE_DEBUG, ///< Debug level - most verbose, for detailed diagnostic information
+        ECLIPSE_INFO,  ///< Information level - general informational messages
+        ECLIPSE_WARN,  ///< Warning level - potentially harmful situations
+        ECLIPSE_ERROR, ///< Error level - error events that might still allow the application to continue
+        ECLIPSE_FATAL, ///< Fatal level - very severe error events that will presumably lead to application abort
+        ECLIPSE_NONE   ///< No logging - disables all log output
+    };
 
     /**
-     * @brief Set the minimum log level for output filtering
+     * @brief Enumeration of available output destinations
      *
-     * Only log messages with a level greater than or equal to the set level
-     * will be displayed. This allows runtime filtering of log output.
-     *
-     * @param level The minimum LogLevel to display
-     * @note This method is thread-safe
-     *
-     * @example
-     * @code
-     * logger.setLogLevel(LogLevel::ECLIPSE_WARN); // Only show ECLIPSE_WARN and ECLIPSE_ERROR
-     * @endcode
+     * Defines where log messages should be written - console, file, both, or neither.
      */
-    void setLogLevel(LogLevel level);
+    enum class EOutput
+    {
+        CONSOLE, ///< Output to console/terminal only
+        FILE,    ///< Output to log file only
+        BOTH,    ///< Output to both console and file
+        NONE     ///< No output - suppress all log messages
+    };
 
     /**
-     * @brief Get the current minimum log level
+     * @brief Singleton logger class providing thread-safe logging functionality
      *
-     * @return The current LogLevel threshold
-     * @note This method is thread-safe
+     * The Logger class implements the singleton pattern to provide a global logging
+     * interface. It supports multiple output destinations, configurable log levels,
+     * file output, and thread-safe operations.
+     *
+     * @note This class is thread-safe and can be safely used from multiple threads.
      */
-    LogLevel getLogLevel() const;
+    class Logger
+    {
+    public:
+        /**
+         * @brief Get the singleton instance of the Logger
+         *
+         * @return Logger& Reference to the singleton Logger instance
+         */
+        static Logger &getInstance();
+
+        /**
+         * @brief Set the minimum logging level
+         *
+         * Only messages at or above this level will be logged.
+         *
+         * @param level The minimum logging level to set
+         */
+        void setLevel(ELevel level);
+
+        /**
+         * @brief Get the current logging level
+         *
+         * @return ELevel The current minimum logging level
+         */
+        ELevel getLevel() const;
+
+        /**
+         * @brief Set the log file path for file output
+         *
+         * Sets the file path where log messages will be written when file output
+         * is enabled. Creates the file if it doesn't exist.
+         *
+         * @param filePath Path to the log file
+         */
+        void setLogFile(const std::string &filePath);
+
+        /**
+         * @brief Close the current log file
+         *
+         * Closes the log file stream if it's currently open. This is automatically
+         * called when the logger is destroyed.
+         */
+        void closeLogFile();
+
+        /**
+         * @brief Set the output destination for log messages
+         *
+         * @param output The output destination (CONSOLE, FILE, BOTH, or NONE)
+         */
+        void setOutputDestination(EOutput output);
+
+        /**
+         * @brief Get the current output destination
+         *
+         * @return EOutput The current output destination setting
+         */
+        EOutput getOutputDestination() const;
+
+        /**
+         * @brief Load logger configuration from a file
+         *
+         * Loads logging configuration from a configuration file. The file should
+         * contain key-value pairs for various logging settings.
+         *
+         * @param configPath Path to the configuration file
+         * @return bool True if the configuration was loaded successfully, false otherwise
+         */
+        bool loadConfig(const std::string &configPath);
+
+        /**
+         * @brief Get the string representation of a logging level
+         *
+         * @param level The logging level to convert
+         * @return std::string String representation of the level (e.g., "DEBUG", "INFO")
+         */
+        std::string getLevelName(ELevel level) const;
+
+        /**
+         * @brief Log a message with specified level and details
+         *
+         * The main logging function that outputs a formatted log message to the
+         * configured destination(s). Thread-safe.
+         *
+         * @param level The severity level of the message
+         * @param tag A tag or category for the message (e.g., "Database", "Network")
+         * @param msg The main log message
+         * @param details Additional details as a vector of strings
+         * @param trace Stack trace or additional trace information
+         */
+        void log(ELevel level, const std::string &tag, const std::string &msg,
+                 const std::vector<std::string> &details, const std::string &trace);
+
+        /**
+         * @brief Assert a condition and log an error if it fails
+         *
+         * Checks a boolean condition and logs an error message if the condition
+         * is false. Useful for runtime assertions with logging.
+         *
+         * @param condition The condition to check
+         * @param tag A tag or category for the assertion
+         * @param msg The error message to log if the assertion fails
+         * @param details Additional details (optional)
+         * @param trace Stack trace information (optional)
+         * @return bool The value of the condition parameter
+         */
+        bool assert(bool condition, const std::string &tag, const std::string &msg,
+                    const std::vector<std::string> &details = {}, const std::string &trace = "");
+
+        /**
+         * @brief Get current timestamp as formatted string
+         *
+         * @return std::string Current timestamp in a readable format
+         */
+        std::string getTimestamp() const;
+
+    private:
+        /**
+         * @brief Private constructor for singleton pattern
+         *
+         * Initializes the logger with default settings. Only accessible internally.
+         */
+        Logger();
+
+        /**
+         * @brief Destructor (defaulted)
+         *
+         * Automatically closes log files and cleans up resources.
+         */
+        ~Logger() = default;
+
+        static Logger *instance; ///< Singleton instance pointer
+
+        /**
+         * @brief Get ANSI color code for a logging level
+         *
+         * @param level The logging level
+         * @return std::string ANSI color escape sequence for console output
+         */
+        std::string getColour(ELevel level) const;
+
+        /**
+         * @brief Truncate file path to show only relevant parts
+         *
+         * Shortens long file paths for cleaner log output.
+         *
+         * @param path The full file path
+         * @return std::string Truncated path
+         */
+        std::string truncatePath(const std::string &path) const;
+
+        /**
+         * @brief Parse string value to logging level enum
+         *
+         * @param value String representation of the level
+         * @param level Reference to store the parsed level
+         * @return bool True if parsing was successful, false otherwise
+         */
+        bool parseLevel(const std::string &value, ELevel &level) const;
+
+        ELevel currentLevel = ELevel::ECLIPSE_DEBUG; ///< Current minimum logging level
+        mutable std::mutex logMutex;                 ///< Mutex for thread-safe logging operations
+        mutable std::mutex levelMutex;               ///< Mutex for thread-safe level operations
+        mutable std::mutex fileMutex;                ///< Mutex for thread-safe file operations
+
+        EOutput outputDestination = EOutput::CONSOLE; ///< Current output destination setting
+        std::string logFilePath;                      ///< Path to the current log file
+        std::ofstream logFileStream;                  ///< File stream for log file output
+    };
 
     /**
-     * @brief Load configuration from a specific file path
+     * @brief Utility function to create a details vector from a single string
      *
-     * Allows loading log level configuration from a custom .env or .ini file.
-     * Supports both absolute and relative paths. File type is determined by
-     * extension (.env or .ini).
+     * Helper function that converts a single string into a vector of strings
+     * for use with the log function's details parameter.
      *
-     * @param configPath Path to the configuration file
-     * @return true if configuration was loaded successfully, false otherwise
-     *
-     * @example
-     * @code
-     * Logger& logger = Logger::getInstance();
-     * logger.loadConfigFromFile("./config/logging.ini");
-     * @endcode
+     * @param details Single detail string to convert
+     * @return std::vector<std::string> Vector containing the single detail string
      */
-    bool loadConfigFromFile(const std::string &configPath);
-
-    /**
-     * @brief Get the name of the current log level
-     *
-     * Returns a string representation of the current log level, e.g., "DEBUG", "INFO".
-     * This can be useful for logging or displaying the current configuration.
-     *
-     * @return String name of the current log level
-     */
-    std::string getLogLevelName() const;
-
-private:
-    /**
-     * @brief Private constructor for singleton pattern
-     *
-     * Initializes the logger with ECLIPSE_DEBUG level as default and loads
-     * configuration from environment files if available.
-     */
-    Logger();
-
-    /**
-     * @brief Load log level configuration from configuration files
-     *
-     * Searches for LOG_LEVEL setting in .env or .ini files. If no custom path
-     * is provided, looks for .env and .ini files in the current directory.
-     * Falls back to ECLIPSE_DEBUG level if no configuration is found.
-     *
-     * Supports both string values (DEBUG, INFO, WARNING, ERROR) and
-     * numeric values (0-3).
-     *
-     * @note This method is called automatically during initialization
-     */
-    void loadEnvLogLevel();
-
-    /**
-     * @brief Parse .env format configuration file
-     *
-     * Parses a .env format file looking for LOG_LEVEL=value lines.
-     *
-     * @param filePath Path to the .env file
-     * @return true if LOG_LEVEL was found and parsed, false otherwise
-     */
-    bool parseEnvFile(const std::string &filePath);
-
-    /**
-     * @brief Parse .ini format configuration file
-     *
-     * Parses a .ini format file looking for LOG_LEVEL under [logging] section
-     * or as a standalone LOG_LEVEL=value line.
-     *
-     * @param filePath Path to the .ini file
-     * @return true if LOG_LEVEL was found and parsed, false otherwise
-     */
-    bool parseIniFile(const std::string &filePath);
-
-    /**
-     * @brief Convert string log level to LogLevel enum
-     *
-     * Converts string representations (both text and numeric) to LogLevel enum.
-     *
-     * @param levelStr String representation of log level
-     * @param outLevel Reference to store the converted LogLevel
-     * @return true if conversion was successful, false otherwise
-     */
-    bool parseLogLevelString(const std::string &levelStr, LogLevel &outLevel);
-
-    /**
-     * @brief Core logging implementation with formatting and thread-safe output
-     *
-     * This method performs the complete logging workflow:
-     * 1. Checks if the message level meets the current threshold
-     * 2. Formats the message with colors, timestamps, and Unicode box characters
-     * 3. Outputs the structured log message to stdout
-     *
-     * The output format uses Unicode box-drawing characters (┏┃┗) to create
-     * a structured appearance:
-     * - ┏ (top-left corner) for the main message line
-     * - ┃ (vertical line) for trace information
-     * - ┗ (bottom-left corner) for additional details
-     *
-     * @param level Severity level of the log message
-     * @param tag Category tag for message classification (e.g., "HTTP", "DB")
-     * @param message Main content of the log message
-     * @param details Optional additional context or details
-     * @param trace Optional source location information (file:line [function])
-     *
-     * @note This method is thread-safe using two levels of mutex protection:
-     *       - levelMutex for checking the current log level
-     *       - logMutex for ensuring atomic output operations
-     */
-    void logInternal(LogLevel level, const std::string &tag, const std::string &message,
-                     const std::string &details, const std::string &trace);
-
-    /**
-     * @brief Log a debug message
-     * @param tag Message category tag
-     * @param msg Main message content
-     * @param details Additional details (optional)
-     * @param trace Trace information (optional)
-     */
-    void debug(const std::string &tag, const std::string &msg, const std::string &details, const std::string &trace);
-
-    /**
-     * @brief Log an info message
-     * @param tag Message category tag
-     * @param msg Main message content
-     * @param details Additional details (optional)
-     * @param trace Trace information (optional)
-     */
-    void info(const std::string &tag, const std::string &msg, const std::string &details, const std::string &trace);
-
-    /**
-     * @brief Log a warning message
-     * @param tag Message category tag
-     * @param msg Main message content
-     * @param details Additional details (optional)
-     * @param trace Trace information (optional)
-     */
-    void warning(const std::string &tag, const std::string &msg, const std::string &details, const std::string &trace);
-
-    /**
-     * @brief Log an error message
-     * @param tag Message category tag
-     * @param msg Main message content
-     * @param details Additional details (optional)
-     * @param trace Trace information (optional)
-     */
-    void error(const std::string &tag, const std::string &msg, const std::string &details, const std::string &trace);
-
-    /**
-     * @brief Get ANSI color code for the specified log level
-     *
-     * @param level The LogLevel to get color for
-     * @return ANSI escape sequence string for the color
-     *
-     * Color mapping:
-     * - ECLIPSE_DEBUG: Cyan (\033[36m)
-     * - ECLIPSE_INFO: Green (\033[32m)
-     * - ECLIPSE_WARN: Yellow (\033[33m)
-     * - ECLIPSE_ERROR: Red (\033[31m)
-     */
-    std::string getColor(LogLevel level) const;
-
-    /**
-     * @brief Get string representation of log level
-     *
-     * @param level The LogLevel to convert
-     * @return String name of the log level (e.g., "info", "error")
-     */
-    std::string getLevelName(LogLevel level) const;
-
-    /**
-     * @brief Generate current timestamp in standardized format
-     *
-     * Creates a timestamp string representing the current system time
-     * in "YYYY-MM-DD HH:MM:SS" format using platform-specific thread-safe
-     * time conversion functions.
-     *
-     * @return Formatted timestamp string
-     *
-     * @note Uses platform-specific functions for thread safety:
-     *       - Windows: localtime_s()
-     *       - Unix/Linux: localtime_r()
-     */
-    std::string getTimestamp() const;
-
-    /**
-     * @brief Extract filename from full path in trace information
-     *
-     * Processes trace strings to extract just the filename instead of the full path.
-     * Handles both Windows (\) and Unix (/) path separators.
-     *
-     * @param trace The trace string containing "at path:line [function]"
-     * @return Modified trace string with shortened filename
-     */
-    std::string extractFilename(const std::string &trace) const;
-
-    LogLevel currentLevel = LogLevel::ECLIPSE_DEBUG; ///< Current minimum log level threshold (defaults to ECLIPSE_DEBUG)
-    mutable std::mutex logMutex;                     ///< Mutex for thread-safe log output
-    mutable std::mutex levelMutex;                   ///< Mutex for thread-safe level access
-
-    // Friend declarations for macro implementation functions
-    friend void LOG_DEBUG_IMPL(const std::string &, const std::string &, const std::string &, const std::string &);   ///< Friend for debug macro
-    friend void LOG_INFO_IMPL(const std::string &, const std::string &, const std::string &, const std::string &);    ///< Friend for info macro
-    friend void LOG_WARNING_IMPL(const std::string &, const std::string &, const std::string &, const std::string &); ///< Friend for warning macro
-    friend void LOG_ERROR_IMPL(const std::string &, const std::string &, const std::string &, const std::string &);   ///< Friend for error macro
-};
+    std::vector<std::string> eclipse_make_details(const std::string &details);
+}

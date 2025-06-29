@@ -1,161 +1,95 @@
-cmake_minimum_required(VERSION 3.15)
-
-project(Eclipse 
-    VERSION 1.0.3
-    DESCRIPTION "A minimal, colorful C++ logging library"
-    LANGUAGES CXX
-)
+cmake_minimum_required(VERSION 3.16)
+project(Eclipse VERSION 2.0.0 LANGUAGES CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Add compile features for better compatibility
-set(CMAKE_CXX_COMPILE_FEATURES cxx_std_17)
-
-# Set default build type if not specified
+# Set default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Platform-specific configurations
-if(WIN32)
-    if(MSVC)
-        add_compile_options(/W4)
-        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+# Compiler-specific options
+if(MSVC)
+    add_compile_options(/W4)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        add_compile_options(/Od /Zi)
     else()
-        add_compile_options(-Wall -Wextra -Wpedantic)
+        add_compile_options(/O2)
     endif()
-elseif(UNIX)
-    # Unix-like systems (Linux, macOS)
+else()
     add_compile_options(-Wall -Wextra -Wpedantic)
-    if(APPLE)
-        # macOS-specific settings
-        set(CMAKE_MACOSX_RPATH ON)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        add_compile_options(-g -O0)
+    else()
+        add_compile_options(-O3)
     endif()
 endif()
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+# Find required packages
+find_package(Threads REQUIRED)
 
 # Source files
-set(SOURCES
+set(ECLIPSE_SOURCES
     src/Logger.cpp
 )
 
 # Header files
-set(HEADERS
+set(ECLIPSE_HEADERS
     include/Eclipse/Logger.h
-    include/Eclipse/LogMacros.h
+    include/Eclipse/Macros.h
 )
 
-# Create the main library
-add_library(EclipseCore STATIC ${SOURCES} ${HEADERS})
+# Create the Eclipse library
+add_library(Eclipse STATIC ${ECLIPSE_SOURCES} ${ECLIPSE_HEADERS})
 
 # Set target properties
-set_target_properties(EclipseCore PROPERTIES
+set_target_properties(Eclipse PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
-    PUBLIC_HEADER "${HEADERS}"
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
+    PUBLIC_HEADER "${ECLIPSE_HEADERS}"
 )
 
-# Target compile features
-target_compile_features(EclipseCore PUBLIC cxx_std_17)
+# Link libraries
+target_link_libraries(Eclipse PRIVATE Threads::Threads)
 
 # Include directories for the target
-target_include_directories(EclipseCore
-    PUBLIC
+target_include_directories(Eclipse 
+    PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
+    PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# Thread support (required for std::mutex, std::thread)
-find_package(Threads REQUIRED)
-target_link_libraries(EclipseCore PUBLIC Threads::Threads)
-
-# Platform-specific linking
-if(WIN32)
-    # Windows doesn't need additional libraries for threading
-elseif(UNIX)
-    # Unix systems might need pthread explicitly
-    target_link_libraries(EclipseCore PRIVATE pthread)
-endif()
-
-# Create an alias target for internal use
-add_library(Eclipse::EclipseCore ALIAS EclipseCore)
-
-# Interface library for header-only usage
-add_library(Eclipse INTERFACE)
-target_include_directories(Eclipse
-    INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+# Compile definitions
+target_compile_definitions(Eclipse PRIVATE 
+    $<$<CONFIG:Debug>:ECLIPSE_DEBUG_BUILD>
+    $<$<CONFIG:Release>:ECLIPSE_RELEASE_BUILD>
 )
-target_compile_features(Eclipse INTERFACE cxx_std_17)
 
-# Create an alias for the interface
-add_library(Eclipse::Eclipse ALIAS Eclipse)
+# Enable testing
+enable_testing()
 
-# Optional: Build test executable
-option(BUILD_TESTS "Build test executables" ON)
-option(FAIL_ON_TEST_FAILURE "Fail build if any tests fail" ON)
+# Add tests subdirectory
+add_subdirectory(tests)
 
-# Enable testing if tests are requested
-if(BUILD_TESTS)
-    enable_testing()
-    
-    # Add the tests subdirectory
-    add_subdirectory(tests)
-    
-    # Create a comprehensive test validation target
-    if(FAIL_ON_TEST_FAILURE)
-        # Create a target that runs all tests and fails build if any test fails
-        add_custom_target(validate_build
-            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            COMMENT "Validating build with comprehensive test suite"
-            DEPENDS test_logger test_config_edge_cases test_thread_safety
-        )
-        
-        # Make validate_build part of the default build when BUILD_TESTS=ON
-        add_custom_target(build_and_validate ALL
-            DEPENDS EclipseCore validate_build
-            COMMENT "Building library and running validation tests"
-        )
-        
-        # Optional: Add post-build test execution to EclipseCore itself
-        add_custom_command(TARGET EclipseCore POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "Library built successfully - running validation tests..."
-            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            COMMENT "Running post-build validation tests"
-        )
-    else()
-        # Just build tests but don't run them automatically
-        add_custom_target(build_tests_only
-            DEPENDS test_logger test_config_edge_cases test_thread_safety
-            COMMENT "Building test executables (tests not run automatically)"
-        )
-    endif()
-    
-    # Legacy test support for backward compatibility
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/main.cpp")
-        add_executable(EclipseTest test/main.cpp)
-        target_link_libraries(EclipseTest PRIVATE EclipseCore)
-        add_test(NAME EclipseBasicTest COMMAND EclipseTest)
-    endif()
-endif()
+# Add a custom target to run all tests
+add_custom_target(run_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    DEPENDS test_basic_logging test_multithreaded_logging test_config_file_logging
+    COMMENT "Running all Eclipse library tests"
+)
 
-# Installation configuration
+# Installation
 include(GNUInstallDirs)
 
-# Install the library
-install(TARGETS EclipseCore Eclipse
+install(TARGETS Eclipse
     EXPORT EclipseTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -164,66 +98,44 @@ install(TARGETS EclipseCore Eclipse
 )
 
 # Install headers
-install(DIRECTORY include/
+install(DIRECTORY include/Eclipse
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h"
 )
 
-# Create and install CMake config files
-include(CMakePackageConfigHelpers)
-
-# Generate the config file
-configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EclipseConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/EclipseConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Eclipse
-    PATH_VARS CMAKE_INSTALL_INCLUDEDIR
-)
-
-# Generate the version file
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/EclipseConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
-
-# Install the targets export
+# Create config files for find_package()
 install(EXPORT EclipseTargets
     FILE EclipseTargets.cmake
     NAMESPACE Eclipse::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Eclipse
 )
 
-# Install config files
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/EclipseConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/EclipseConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Eclipse
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/EclipseConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/EclipseConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/EclipseConfigVersion.cmake"
+    ${CMAKE_CURRENT_BINARY_DIR}/EclipseConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/EclipseConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Eclipse
 )
 
-# Create pkg-config file for systems that use it
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/eclipse.pc.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/eclipse.pc"
-    @ONLY
-)
+# Package configuration
+set(CPACK_PACKAGE_NAME "Eclipse")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Eclipse C++ Logging Library")
+set(CPACK_PACKAGE_VENDOR "tomosfps")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/eclipse.pc"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
-)
-
-# Print configuration summary
-message(STATUS "Eclipse Configuration Summary:")
-message(STATUS "  Version: ${PROJECT_VERSION}")
-message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "  C++ standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
-message(STATUS "  Build tests: ${BUILD_TESTS}")
-message(STATUS "  Fail on test failure: ${FAIL_ON_TEST_FAILURE}")
-if(WIN32)
-    message(STATUS "  Platform: Windows")
-elseif(APPLE)
-    message(STATUS "  Platform: macOS")
-elseif(UNIX)
-    message(STATUS "  Platform: Linux/Unix")
-endif()
+include(CPack)

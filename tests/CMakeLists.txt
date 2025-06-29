@@ -1,59 +1,44 @@
-cmake_minimum_required(VERSION 3.15)
-
 # Test configuration
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+enable_testing()
 
-# Find required packages
+# Find required packages for testing
 find_package(Threads REQUIRED)
 
-# Test executables
-set(TEST_SOURCES
-    test_logger.cpp
-    test_config_edge_cases.cpp
-    test_thread_safety.cpp
-)
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# Create test executables
-foreach(TEST_SOURCE ${TEST_SOURCES})
-    get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
-    
-    # Link against the main library
-    target_link_libraries(${TEST_NAME} PRIVATE EclipseCore)
-    target_link_libraries(${TEST_NAME} PRIVATE Threads::Threads)
-    
-    # Include directories
-    target_include_directories(${TEST_NAME} PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    )
-    
-    # Add filesystem library for C++17 (if needed)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-        target_link_libraries(${TEST_NAME} PRIVATE stdc++fs)
-    endif()
-    
-    # Register as a test
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-    
-    # Set test properties
-    set_tests_properties(${TEST_NAME} PROPERTIES
-        TIMEOUT 60
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    )
-endforeach()
+# Test 1: Basic Logging Test
+add_executable(test_basic_logging test_basic_logging.cpp)
+target_link_libraries(test_basic_logging Eclipse Threads::Threads)
+target_include_directories(test_basic_logging PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
-# Create a comprehensive test that runs all tests
-add_custom_target(run_all_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --verbose
-    DEPENDS test_logger test_config_edge_cases test_thread_safety
-    COMMENT "Running all Eclipse Logger tests"
-)
+# Test 2: Multi-threaded Logging Test
+add_executable(test_multithreaded_logging test_multithreaded_logging.cpp)
+target_link_libraries(test_multithreaded_logging Eclipse Threads::Threads)
+target_include_directories(test_multithreaded_logging PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
-# Test discovery for IDEs
-include(GoogleTest OPTIONAL)
-if(GTEST_FOUND)
-    gtest_discover_tests(test_logger)
-    gtest_discover_tests(test_config_edge_cases)
-    gtest_discover_tests(test_thread_safety)
-endif()
+# Test 3: Configuration and File Logging Test
+add_executable(test_config_file_logging test_config_file_logging.cpp)
+target_link_libraries(test_config_file_logging Eclipse Threads::Threads)
+target_include_directories(test_config_file_logging PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Test 4: Advanced Features Test
+add_executable(test_advanced_features test_advanced_features.cpp)
+target_link_libraries(test_advanced_features Eclipse Threads::Threads)
+target_include_directories(test_advanced_features PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Add tests to CTest
+add_test(NAME BasicLogging COMMAND test_basic_logging)
+add_test(NAME MultithreadedLogging COMMAND test_multithreaded_logging)
+add_test(NAME ConfigFileLogging COMMAND test_config_file_logging)
+add_test(NAME AdvancedFeatures COMMAND test_advanced_features)
+
+# Set test properties
+set_tests_properties(BasicLogging PROPERTIES TIMEOUT 30)
+set_tests_properties(MultithreadedLogging PROPERTIES TIMEOUT 60)
+set_tests_properties(ConfigFileLogging PROPERTIES TIMEOUT 30)
+set_tests_properties(AdvancedFeatures PROPERTIES TIMEOUT 45)
+
+# Copy test configuration files to build directory
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/demo.ini ${CMAKE_CURRENT_BINARY_DIR}/demo.ini COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/demo.env ${CMAKE_CURRENT_BINARY_DIR}/demo.env COPYONLY)
