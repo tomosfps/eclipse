@@ -12,6 +12,7 @@
 #include <sstream>
 #include <thread>
 #include <chrono>
+#include <ctime>
 
 using namespace Eclipse;
 
@@ -158,6 +159,37 @@ void test_log_level_filtering()
     std::cout << "✓ Log level filtering test passed" << std::endl;
 }
 
+void test_function_evaluation()
+{
+    std::cout << "Testing function call and variable evaluation..." << std::endl;
+
+    Logger &logger = Logger::getInstance();
+    logger.setLevel(ELevel::ECLIPSE_DEBUG);
+    logger.setOutputDestination(EOutput::CONSOLE);
+
+    // Test with function calls that return values
+    std::string currentLevel = logger.getLevelName(logger.getLevel());
+    int port = 8080;
+    double version = 2.1;
+    bool isConnected = true;
+
+    std::cout << "Testing with function calls and variables (should show actual values):" << std::endl;
+
+    // This should show the actual level name (e.g., "DEBUG") instead of the function call text
+    ECLIPSE_INFO("EVAL_TEST", "Current log level", logger.getLevelName(logger.getLevel()));
+
+    // This should show the actual values instead of variable names
+    ECLIPSE_DEBUG("EVAL_TEST", "Connection info", "port=" + std::to_string(port), "version=" + std::to_string(version));
+
+    // Mix of variables and function calls
+    ECLIPSE_WARNING("EVAL_TEST", "System status",
+                    "connected=" + std::string(isConnected ? "true" : "false"),
+                    "current_level=" + currentLevel,
+                    "timestamp=" + std::to_string(std::time(nullptr)));
+
+    std::cout << "✓ Function evaluation test passed" << std::endl;
+}
+
 int main()
 {
     try
@@ -172,8 +204,10 @@ int main()
         test_level_names();
         test_basic_logging_macros();
         test_logging_with_details();
+        test_function_evaluation();
         test_assert_functionality();
         test_log_level_filtering();
+        test_function_evaluation();
 
         std::cout << std::endl
                   << "🎉 All basic tests passed successfully!" << std::endl;

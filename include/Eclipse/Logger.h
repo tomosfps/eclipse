@@ -3,7 +3,7 @@
  * @brief Eclipse Logging Library - Core logging functionality
  * @author tomosfps
  * @date 2025
- * @version 2.0.0
+ * @version 2.0.1
  */
 
 #pragma once

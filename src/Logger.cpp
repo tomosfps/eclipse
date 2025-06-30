@@ -261,14 +261,14 @@ namespace Eclipse
             << whiteColor << "[" << levelColor << tag << whiteColor << "] "
             << whiteColor << msg << resetColor << "\n";
 
-        if (!trace.empty())
-        {
-            out << indent << whiteColor << "┃ "
-                << levelColor << "at: " << whiteColor << trace << resetColor << "\n";
-        }
-
         if (!details.empty())
         {
+            if (!trace.empty())
+            {
+                out << indent << whiteColor << "┃ "
+                    << levelColor << "at: " << whiteColor << trace << resetColor << "\n";
+            }
+
             for (size_t i = 0; i < details.size(); ++i)
             {
                 if (i == details.size() - 1)
@@ -285,7 +285,9 @@ namespace Eclipse
         }
         else if (!trace.empty())
         {
-            out << indent << whiteColor << "┗" << resetColor << "\n";
+            // If we have no details but have trace, put trace on the bottom line with ┗
+            out << indent << whiteColor << "┗ "
+                << levelColor << "at: " << whiteColor << trace << resetColor << "\n";
         }
 
         if (outputDestination == EOutput::CONSOLE || outputDestination == EOutput::BOTH)

@@ -3,7 +3,7 @@
  * @brief Eclipse Logging Library - Convenience macros for logging
  * @author tomosfps
  * @date 2025
- * @version 2.0.0
+ * @version 2.0.1
  */
 
 #pragma once
@@ -12,6 +12,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <type_traits>
 
 /**
  * @brief Cross-platform function name macro
@@ -47,6 +48,37 @@
     if (lastSep != std::string::npos) filename = filename.substr(lastSep + 1); \
     oss << filename << ":" << line << " [" << func << "]"; \
     return oss.str(); }(__FILE__, __LINE__, ECLIPSE_FUNC_NAME))
+
+/**
+ * @brief Variadic template function to convert arguments to string vector
+ *
+ * This template function converts a variadic list of arguments to a vector of strings.
+ * Each argument is evaluated first, then converted to string using std::ostringstream.
+ * This allows function calls and expressions to be properly evaluated.
+ *
+ * @param args Variadic arguments to evaluate and convert to strings
+ * @return std::vector<std::string> Vector containing string representations of all arguments
+ */
+template <typename... Args>
+inline std::vector<std::string> eclipse_make_details_variadic(Args &&...args)
+{
+    std::vector<std::string> result;
+    if constexpr (sizeof...(args) > 0)
+    {
+        result.reserve(sizeof...(args));
+        ((result.emplace_back([](auto &&arg)
+                              {
+            if constexpr (std::is_convertible_v<std::decay_t<decltype(arg)>, std::string>) {
+                return std::string(std::forward<decltype(arg)>(arg));
+            } else {
+                std::ostringstream oss;
+                oss << std::forward<decltype(arg)>(arg);
+                return oss.str();
+            } }(std::forward<Args>(args)))),
+         ...);
+    }
+    return result;
+}
 
 /**
  * @brief Internal implementation function for logging macros
@@ -100,7 +132,7 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_DEBUG(tag, msg, ...) \
-    ECLIPSE_MACRO_IMPL(tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_DEBUG)
+    ECLIPSE_MACRO_IMPL(tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_DEBUG)
 
 /**
  * @brief Log an informational message with automatic trace information
@@ -118,7 +150,7 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_INFO(tag, msg, ...) \
-    ECLIPSE_MACRO_IMPL(tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_INFO)
+    ECLIPSE_MACRO_IMPL(tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_INFO)
 
 /**
  * @brief Log a warning message with automatic trace information
@@ -136,7 +168,7 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_WARNING(tag, msg, ...) \
-    ECLIPSE_MACRO_IMPL(tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_WARN)
+    ECLIPSE_MACRO_IMPL(tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_WARN)
 
 /**
  * @brief Log an error message with automatic trace information
@@ -154,7 +186,7 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_ERROR(tag, msg, ...) \
-    ECLIPSE_MACRO_IMPL(tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_ERROR)
+    ECLIPSE_MACRO_IMPL(tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_ERROR)
 
 /**
  * @brief Log a fatal error message with automatic trace information
@@ -172,7 +204,7 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_FATAL(tag, msg, ...) \
-    ECLIPSE_MACRO_IMPL(tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_FATAL)
+    ECLIPSE_MACRO_IMPL(tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO(), Eclipse::ELevel::ECLIPSE_FATAL)
 
 /**
  * @brief Assert a condition and log an error if it fails
@@ -191,4 +223,4 @@ inline void ECLIPSE_ASSERT_IMPL(bool condition, const std::string &tag, const st
  * @endcode
  */
 #define ECLIPSE_ASSERT(condition, tag, msg, ...) \
-    ECLIPSE_ASSERT_IMPL(condition, tag, msg, Eclipse::eclipse_make_details(#__VA_ARGS__), ETRACE_INFO())
+    ECLIPSE_ASSERT_IMPL(condition, tag, msg, eclipse_make_details_variadic(__VA_ARGS__), ETRACE_INFO())
